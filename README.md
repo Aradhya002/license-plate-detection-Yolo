@@ -12,6 +12,8 @@ Built as the plate-detection module of our Smart India Hackathon 2026 project (p
 - Dataset: approximately 3,000 license-plate images in YOLO format
 - Training: 50 epochs on Google Colab with a GPU
 - The model detects only the number plate, not the whole vehicle
+- Validation (580 images): on the `numberplate` class, which makes up 593 of 602 instances, precision 0.99, recall 0.877, mAP50 0.979, mAP50-95 0.838
+- The dataset also contains a rare second class, `Licence-Plates` (9 instances), which lowers the overall mAP50 across both classes to 0.678
 
 ## Workflow
 
