@@ -1,99 +1,87 @@
-# ANPR - YOLO Plate Detection (your part of Member 1)
+# License Plate Detection with YOLOv8
 
-You're doing detection (find the plate in the frame → bbox + crop). Your
-teammate does OCR (crop → text). The handoff between you is the `crop` field
-in each detection dict from `detect_plates()` - agree on that early and you
-can both work independently.
+A fine-tuned YOLOv8 model that detects vehicle number plates in images and video frames, returning a bounding box and a cropped plate image for each detection.
 
-## 1. Environment setup (Day 1)
+Built as the plate-detection module of our Smart India Hackathon 2026 project (problem statement SIH26127: multi-camera ANPR and urban traffic analytics), developed by a 6-member team.
+
+![Detection example](detections_preview.jpg)
+
+## Training details
+
+- Model: YOLOv8, fine-tuned from COCO pretrained weights
+- Dataset: approximately 3,000 license-plate images in YOLO format
+- Training: 50 epochs on Google Colab with a GPU
+- The model detects only the number plate, not the whole vehicle
+
+## Workflow
+
+### 1. Environment setup
 
 ```bash
 pip install -r requirements.txt
 ```
 
-That's `ultralytics` (YOLOv8), `opencv-python`, `numpy`. Ultralytics will
-auto-download the base `yolov8n.pt` (COCO weights) the first time you run
-`YOLO("yolov8n.pt")` - useful to prove the pipeline runs end-to-end on day 1,
-but remember it has never seen a license plate, so it won't detect any yet.
+This installs `ultralytics` (YOLOv8), `opencv-python` and `numpy`. Ultralytics downloads the base `yolov8n.pt` (COCO weights) automatically on first use. It has never seen a license plate, so it won't detect any yet, but running it proves the pipeline works end to end.
 
-## 2. Get a plate dataset (Day 1-2)
+### 2. Get a plate dataset
 
-Best starting point: **Roboflow Universe - "License Plate Recognition"**
-(roboflow-universe-projects, ~24k images, YOLO-format labels, single class):
-https://universe.roboflow.com/roboflow-universe-projects/license-plate-recognition-rxg4e
+Roboflow Universe has several single-class license-plate datasets in YOLOv8 format. On a dataset page, choose **Download Dataset**, pick the **YOLOv8** format, and you get `images/`, `labels/` and a `data.yaml`. See `plates.yaml.example` for what the config should look like.
 
-On the dataset page: Download Dataset → format **YOLOv8** → it gives you a
-folder with `images/`, `labels/`, and a `data.yaml` already in the right
-shape (see `plates.yaml.example` in this folder for what that looks like).
-No account needed for the download link, a free Roboflow login is enough if
-prompted.
-
-If that one doesn't work for your demo footage's camera angle, a few
-backups (also YOLOv8-ready, browse "Object Detection" on the page and grab
-whichever preview images look closest to your traffic-camera angle):
-- "Car License Plate" (public domain, smaller, quick to test with)
-- "YOLOv8 number plate detection" (~5,750 images)
-
-## 3. Run pretrained YOLO on sample images (Day 2)
+### 3. Test the pipeline with pretrained weights
 
 ```bash
-python detect_plates.py sample.jpg yolov8n.pt
+python detect_plates.py sample.jpeg yolov8n.pt
 ```
 
-This won't find plates yet (COCO weights, no plate class) - it's just to
-confirm ultralytics, OpenCV, and your install all work before you wait on a
-dataset download.
+This only confirms that Ultralytics, OpenCV and your install work.
 
-## 4. Fine-tune on the plate dataset
-
-Once you've got the dataset downloaded and `plates.yaml` pointing at it:
+### 4. Fine-tune on the plate dataset
 
 ```bash
 python train_plate_model.py --data plates.yaml --epochs 50
 ```
 
-- Start with `yolov8n` (nano) - it's fast to train and plenty accurate for a
-  single-class (plate) problem; only move to `yolov8s` if you have GPU time
-  to spare and accuracy is lacking.
-- 50 epochs is a reasonable default for a dataset this size; `patience=15`
-  in the script stops early if it plateaus, so you won't waste your 14 days
-  babysitting a training run.
-- Best weights land at `runs/detect/train/weights/best.pt`. Point
-  `detect_plates.load_model("runs/detect/train/weights/best.pt")` at that
-  going forward instead of `yolov8n.pt`.
-- No GPU on your laptop? Google Colab's free tier (T4 GPU) handles this
-  fine for a dataset this size - a 50-epoch run on ~24k images typically
-  finishes in under an hour on a T4.
+- Start with `yolov8n` (nano). It trains fast and is accurate enough for a single-class problem.
+- Early stopping (`patience=15`) ends training if it plateaus.
+- Best weights are saved at `runs/detect/train/weights/best.pt`. A trained copy is included in this repo as `best.pt`.
+- No local GPU? Google Colab's free T4 GPU is enough for a dataset this size.
 
-## 5. Run on real traffic video (Day 4)
+### 5. Run detection with the trained model
+
+```bash
+python detect_plates.py sample.jpeg best.pt
+```
+
+On video, extract frames and run detection on each:
 
 ```python
 from detect_plates import extract_frames, load_model, detect_plates
 
 frames = extract_frames("traffic_sample.mp4", "frames/", every_n_seconds=1.5)
-model = load_model("runs/detect/train/weights/best.pt")
+model = load_model("best.pt")
 
 for frame_path in frames:
     dets = detect_plates(frame_path, model)
-    # hand dets off to your teammate's read_plate(), or to Member 4 for DB insert
+    # each detection has a bounding box, confidence and a cropped plate image
 ```
 
-## 6. Tuning tips
+### 6. Tuning tips
 
-- If you're getting false positives on things that aren't plates, raise
-  `conf_threshold` in `detect_plates()` (try 0.45-0.5).
-- If you're missing plates that are small/far from the camera, lower it
-  (0.2-0.25) and/or increase `imgsz` in training (e.g. 960 instead of 640) -
-  costs more training time but helps with small objects.
-- Keep a folder of `detections_preview.jpg`-style annotated outputs as you
-  go - useful both for your own debugging and as screenshots for Member 6's
-  PPT ("ANPR approach" slide, Day 4).
+- False positives on things that aren't plates: raise `conf_threshold` in `detect_plates()` (try 0.45-0.5).
+- Missing small or distant plates: lower it (0.2-0.25) and/or train with a larger `imgsz` (such as 960 instead of 640). This costs more training time but helps with small objects.
+- Keep annotated outputs like `detections_preview.jpg` as you go, useful for debugging and for presentations.
 
-## Files in this folder
+## Files
 
 | File | Purpose |
 |---|---|
-| `detect_plates.py` | Core module: `detect_plates()`, `draw_detections()`, `extract_frames()` |
-| `train_plate_model.py` | Fine-tunes YOLOv8 on your plate dataset |
-| `plates.yaml.example` | What your dataset's `data.yaml` should look like |
-| `requirements.txt` | pip dependencies |
+| `detect_plates.py` | Core module: detect plates, draw boxes, extract video frames |
+| `train_plate_model.py` | Fine-tunes YOLOv8 on a plate dataset |
+| `plates.yaml.example` | Example dataset config |
+| `requirements.txt` | Python dependencies |
+| `best.pt` | Trained plate-detection weights |
+| Other `.py` scripts | Experiments with batch detection, plate cropping, and vehicle tracking and counting on video |
+
+## Notes
+
+- Each detection includes a crop of the plate, meant to be passed to an OCR stage (handled separately by a teammate).
