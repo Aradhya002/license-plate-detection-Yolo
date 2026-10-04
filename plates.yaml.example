@@ -1,0 +1,10 @@
+# Example data.yaml for a license-plate dataset in YOLO format.
+# Most Roboflow Universe / Kaggle plate datasets export directly in this shape -
+# rename this to plates.yaml and fix the paths once you've downloaded one.
+
+path: ./plate_dataset   # root folder
+train: images/train
+val: images/val
+
+names:
+  0: license_plate

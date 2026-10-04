@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+venv/
+yolov8n.pt
+best_crops/
+vehicle_crops/
+traffic_sample.mp4
+runs/
+dataset/
